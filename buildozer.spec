@@ -16,7 +16,7 @@ requirements = python3,kivy,openpyxl
 
 orientation = portrait
 
-fullscreen = 0
+fullscreen = 1
 
 android.permissions = READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE
 
