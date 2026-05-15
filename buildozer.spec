@@ -26,7 +26,7 @@ android.sdk = 33
 android.ndk = 25b
 android.accept_sdk_license = True
 
-presplash.color = #121212
+presplash.color = #101114
 
 
 [buildozer]

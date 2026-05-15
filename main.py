@@ -7,6 +7,8 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.button import Button
 from kivy.uix.spinner import Spinner
 from kivy.uix.popup import Popup
+from kivy.uix.widget import Widget
+from kivy.graphics import Color, RoundedRectangle
 from kivy.metrics import dp
 from kivy.core.window import Window
 from kivy.utils import platform
@@ -17,10 +19,11 @@ from datetime import datetime, timedelta
 
 import os
 
-# ---------------- ANDROID STORAGE PERMISSION ----------------
+# ---------------- ANDROID STORAGE ----------------
 
 if platform == "android":
     from android.permissions import request_permissions, Permission
+    from android.storage import primary_external_storage_path
 
     request_permissions([
         Permission.READ_EXTERNAL_STORAGE,
@@ -29,9 +32,15 @@ if platform == "android":
 
 # ---------------- THEME ----------------
 
-BG_COLOR = (0.08, 0.08, 0.08, 1)
-CARD_COLOR = (0.12, 0.12, 0.12, 1)
-BTN_COLOR = (0.15, 0.55, 0.95, 1)
+BG_COLOR = (0.06, 0.07, 0.09, 1)
+
+CARD_COLOR = (0.12, 0.13, 0.16, 1)
+
+BLUE_BTN = (0.16, 0.55, 1, 1)
+ORANGE_BTN = (1, 0.55, 0.18, 1)
+GREEN_BTN = (0.2, 0.8, 0.35, 1)
+RED_BTN = (1, 0.28, 0.28, 1)
+
 TEXT_COLOR = (1, 1, 1, 1)
 
 Window.clearcolor = BG_COLOR
@@ -41,43 +50,53 @@ GST_RATE = 0.05
 # ---------------- STORAGE PATH ----------------
 
 if platform == "android":
-    from android.storage import primary_external_storage_path
 
     BASE_PATH = primary_external_storage_path()
-    SAVE_FOLDER = os.path.join(BASE_PATH, "Download", "GST Billing")
+
+    SAVE_FOLDER = os.path.join(
+        BASE_PATH,
+        "Download",
+        "GST Billing"
+    )
 
 else:
+
     SAVE_FOLDER = "GST Billing"
 
 os.makedirs(SAVE_FOLDER, exist_ok=True)
 
-FILE_NAME = os.path.join(
-    SAVE_FOLDER,
-    "GST_Billing_Data.xlsx"
-)
+# ---------------- ROUNDED BUTTON ----------------
 
-# ---------------- CREATE EXCEL FILE ----------------
 
-if not os.path.exists(FILE_NAME):
+class RoundedButton(Button):
 
-    wb = Workbook()
-    sheet = wb.active
-    sheet.title = "Billing_Data"
+    def __init__(self, bg_color=(1, 1, 1, 1), **kwargs):
 
-    headers = [
-        "Date",
-        "Payment Mode",
-        "Bill No",
-        "Sale Amount",
-        "Taxable Amount",
-        "CGST",
-        "SGST",
-        "Total GST"
-    ]
+        super().__init__(**kwargs)
 
-    sheet.append(headers)
+        self.background_normal = ""
+        self.background_down = ""
 
-    wb.save(FILE_NAME)
+        self.background_color = (0, 0, 0, 0)
+
+        self.bg_color = bg_color
+
+        with self.canvas.before:
+            Color(*self.bg_color)
+
+            self.rect = RoundedRectangle(
+                pos=self.pos,
+                size=self.size,
+                radius=[dp(18)]
+            )
+
+        self.bind(pos=self.update_rect)
+        self.bind(size=self.update_rect)
+
+    def update_rect(self, *args):
+
+        self.rect.pos = self.pos
+        self.rect.size = self.size
 
 # ---------------- GST CALCULATION ----------------
 
@@ -85,6 +104,7 @@ if not os.path.exists(FILE_NAME):
 def calculate_gst(amount):
 
     taxable = amount / (1 + GST_RATE)
+
     gst = amount - taxable
 
     cgst = gst / 2
@@ -112,6 +132,8 @@ class GSTBillingApp(App):
         self.total_sale = 0
         self.total_taxable = 0
 
+        self.file_name = ""
+
         root = BoxLayout(
             orientation="vertical",
             padding=dp(12),
@@ -137,7 +159,7 @@ class GSTBillingApp(App):
 
         layout = GridLayout(
             cols=1,
-            spacing=dp(10),
+            spacing=dp(12),
             padding=dp(5),
             size_hint_y=None
         )
@@ -154,10 +176,11 @@ class GSTBillingApp(App):
             hint_text="Enter Date (DD-MM-YY)",
             multiline=False,
             size_hint_y=None,
-            height=dp(55),
+            height=dp(58),
             font_size="18sp",
             background_color=CARD_COLOR,
-            foreground_color=TEXT_COLOR
+            foreground_color=TEXT_COLOR,
+            cursor_color=TEXT_COLOR
         )
 
         layout.add_widget(self.date_input)
@@ -169,7 +192,7 @@ class GSTBillingApp(App):
             multiline=False,
             input_filter="int",
             size_hint_y=None,
-            height=dp(55),
+            height=dp(58),
             font_size="18sp",
             background_color=CARD_COLOR,
             foreground_color=TEXT_COLOR
@@ -182,7 +205,7 @@ class GSTBillingApp(App):
             multiline=False,
             input_filter="int",
             size_hint_y=None,
-            height=dp(55),
+            height=dp(58),
             font_size="18sp",
             background_color=CARD_COLOR,
             foreground_color=TEXT_COLOR
@@ -196,21 +219,21 @@ class GSTBillingApp(App):
             text="PhonePe",
             values=("PhonePe", "Cash"),
             size_hint_y=None,
-            height=dp(55),
+            height=dp(58),
             font_size="18sp",
-            background_color=BTN_COLOR
+            background_color=BLUE_BTN
         )
 
         layout.add_widget(self.mode_spinner)
 
-        # ---------------- AMOUNT ----------------
+        # ---------------- SALE AMOUNT ----------------
 
         self.amount_input = TextInput(
             hint_text="Enter Sale Amount",
             multiline=False,
             input_filter="float",
             size_hint_y=None,
-            height=dp(55),
+            height=dp(58),
             font_size="18sp",
             background_color=CARD_COLOR,
             foreground_color=TEXT_COLOR
@@ -218,30 +241,32 @@ class GSTBillingApp(App):
 
         layout.add_widget(self.amount_input)
 
-        # ---------------- ADD BILL BUTTON ----------------
+        # ---------------- ADD BILL ----------------
 
-        add_btn = Button(
+        add_btn = RoundedButton(
             text="ADD BILL",
+            bg_color=BLUE_BTN,
             size_hint_y=None,
-            height=dp(58),
+            height=dp(60),
             font_size="20sp",
             bold=True,
-            background_color=BTN_COLOR
+            color=TEXT_COLOR
         )
 
         add_btn.bind(on_press=self.add_bill)
 
         layout.add_widget(add_btn)
 
-        # ---------------- EDIT BUTTON ----------------
+        # ---------------- VIEW & EDIT ----------------
 
-        edit_btn = Button(
+        edit_btn = RoundedButton(
             text="VIEW & EDIT BILLS",
+            bg_color=ORANGE_BTN,
             size_hint_y=None,
-            height=dp(58),
+            height=dp(60),
             font_size="20sp",
             bold=True,
-            background_color=(0.9, 0.5, 0.1, 1)
+            color=TEXT_COLOR
         )
 
         edit_btn.bind(on_press=self.show_bills)
@@ -250,28 +275,30 @@ class GSTBillingApp(App):
 
         # ---------------- FINISH DAY ----------------
 
-        finish_btn = Button(
+        finish_btn = RoundedButton(
             text="FINISH DAY",
+            bg_color=GREEN_BTN,
             size_hint_y=None,
-            height=dp(58),
+            height=dp(60),
             font_size="20sp",
             bold=True,
-            background_color=(0.2, 0.7, 0.3, 1)
+            color=TEXT_COLOR
         )
 
         finish_btn.bind(on_press=self.finish_day)
 
         layout.add_widget(finish_btn)
 
-        # ---------------- EXIT BUTTON ----------------
+        # ---------------- EXIT ----------------
 
-        exit_btn = Button(
+        exit_btn = RoundedButton(
             text="SAVE & EXIT",
+            bg_color=RED_BTN,
             size_hint_y=None,
-            height=dp(58),
+            height=dp(60),
             font_size="20sp",
             bold=True,
-            background_color=(0.85, 0.2, 0.2, 1)
+            color=TEXT_COLOR
         )
 
         exit_btn.bind(on_press=self.exit_app)
@@ -298,14 +325,50 @@ class GSTBillingApp(App):
 
         return root
 
+    # ---------------- GET MONTH FILE ----------------
+
+    def create_month_file(self, date_text):
+
+        date_obj = datetime.strptime(date_text, "%d-%m-%y")
+
+        month_name = date_obj.strftime("%B")
+
+        self.file_name = os.path.join(
+            SAVE_FOLDER,
+            f"GST_Billing_{month_name}.xlsx"
+        )
+
+        if not os.path.exists(self.file_name):
+
+            wb = Workbook()
+
+            sheet = wb.active
+
+            sheet.title = "Billing_Data"
+
+            headers = [
+                "Date",
+                "Payment Mode",
+                "Bill No",
+                "Sale Amount",
+                "Taxable Amount",
+                "CGST",
+                "SGST",
+                "Total GST"
+            ]
+
+            sheet.append(headers)
+
+            wb.save(self.file_name)
+
     # ---------------- POPUP ----------------
 
     def show_popup(self, title, message):
 
         box = BoxLayout(
             orientation="vertical",
-            padding=dp(10),
-            spacing=dp(10)
+            spacing=dp(10),
+            padding=dp(10)
         )
 
         msg = Label(
@@ -313,11 +376,12 @@ class GSTBillingApp(App):
             color=TEXT_COLOR
         )
 
-        btn = Button(
+        btn = RoundedButton(
             text="OK",
+            bg_color=BLUE_BTN,
             size_hint_y=None,
-            height=dp(50),
-            background_color=BTN_COLOR
+            height=dp(52),
+            color=TEXT_COLOR
         )
 
         box.add_widget(msg)
@@ -356,6 +420,8 @@ class GSTBillingApp(App):
                     self.cash_input.text
                 )
 
+                self.create_month_file(self.current_date)
+
             amount = float(self.amount_input.text)
 
             taxable, cgst, sgst, gst = calculate_gst(amount)
@@ -363,16 +429,22 @@ class GSTBillingApp(App):
             mode = self.mode_spinner.text
 
             if mode == "PhonePe":
+
                 bill_no = self.phonepe_bill_no
+
                 self.phonepe_bill_no += 1
+
             else:
+
                 bill_no = self.cash_bill_no
+
                 self.cash_bill_no += 1
 
             self.total_sale += amount
             self.total_taxable += taxable
 
-            wb = load_workbook(FILE_NAME)
+            wb = load_workbook(self.file_name)
+
             sheet = wb.active
 
             sheet.append([
@@ -386,7 +458,7 @@ class GSTBillingApp(App):
                 gst
             ])
 
-            wb.save(FILE_NAME)
+            wb.save(self.file_name)
 
             self.summary_label.text = (
                 f"Last Bill Added\n\n"
@@ -404,6 +476,7 @@ class GSTBillingApp(App):
             self.amount_input.text = ""
 
         except Exception as e:
+
             self.show_popup("Error", str(e))
 
     # ---------------- FINISH DAY ----------------
@@ -412,12 +485,13 @@ class GSTBillingApp(App):
 
         try:
 
-            wb = load_workbook(FILE_NAME)
+            wb = load_workbook(self.file_name)
+
             sheet = wb.active
 
             sheet.append([""])
 
-            wb.save(FILE_NAME)
+            wb.save(self.file_name)
 
             self.show_popup(
                 "Day Finished",
@@ -437,10 +511,14 @@ class GSTBillingApp(App):
 
             self.date_input.text = self.current_date
 
+            # RESET TO PHONEPE DAILY
+            self.mode_spinner.text = "PhonePe"
+
             self.total_sale = 0
             self.total_taxable = 0
 
         except Exception as e:
+
             self.show_popup("Error", str(e))
 
     # ---------------- SHOW BILLS ----------------
@@ -449,7 +527,8 @@ class GSTBillingApp(App):
 
         try:
 
-            wb = load_workbook(FILE_NAME)
+            wb = load_workbook(self.file_name)
+
             sheet = wb.active
 
             content = BoxLayout(
@@ -458,7 +537,7 @@ class GSTBillingApp(App):
                 padding=dp(10)
             )
 
-            scroll = ScrollView(size_hint=(1, 1))
+            scroll = ScrollView()
 
             bills_layout = GridLayout(
                 cols=1,
@@ -475,7 +554,7 @@ class GSTBillingApp(App):
                 if row[0] is None:
                     continue
 
-                bill_text = (
+                text = (
                     f"{row[0]} | "
                     f"{row[1]} | "
                     f"Bill {row[2]} | "
@@ -483,9 +562,9 @@ class GSTBillingApp(App):
                 )
 
                 lbl = Label(
-                    text=bill_text,
+                    text=text,
                     size_hint_y=None,
-                    height=dp(40),
+                    height=dp(42),
                     font_size="16sp",
                     color=TEXT_COLOR,
                     halign="left",
@@ -500,13 +579,11 @@ class GSTBillingApp(App):
 
             content.add_widget(scroll)
 
-            # ---------------- EDIT SECTION ----------------
-
             mode_spinner = Spinner(
                 text="PhonePe",
                 values=("PhonePe", "Cash"),
                 size_hint_y=None,
-                height=dp(50)
+                height=dp(52)
             )
 
             bill_input = TextInput(
@@ -514,7 +591,7 @@ class GSTBillingApp(App):
                 multiline=False,
                 input_filter="int",
                 size_hint_y=None,
-                height=dp(50)
+                height=dp(52)
             )
 
             amount_input = TextInput(
@@ -522,14 +599,15 @@ class GSTBillingApp(App):
                 multiline=False,
                 input_filter="float",
                 size_hint_y=None,
-                height=dp(50)
+                height=dp(52)
             )
 
-            save_btn = Button(
+            save_btn = RoundedButton(
                 text="SAVE CHANGES",
+                bg_color=GREEN_BTN,
                 size_hint_y=None,
                 height=dp(55),
-                background_color=(0.2, 0.7, 0.3, 1)
+                color=TEXT_COLOR
             )
 
             content.add_widget(mode_spinner)
@@ -548,7 +626,9 @@ class GSTBillingApp(App):
                 try:
 
                     mode = mode_spinner.text
+
                     bill_no = int(bill_input.text)
+
                     new_amount = float(amount_input.text)
 
                     taxable, cgst, sgst, gst = calculate_gst(
@@ -572,16 +652,20 @@ class GSTBillingApp(App):
                             row[7].value = gst
 
                             found = True
+
                             break
 
-                    wb.save(FILE_NAME)
+                    wb.save(self.file_name)
 
                     if found:
+
                         self.show_popup(
                             "Success",
                             "Bill updated successfully."
                         )
+
                     else:
+
                         self.show_popup(
                             "Error",
                             "Bill not found."
@@ -590,6 +674,7 @@ class GSTBillingApp(App):
                     popup.dismiss()
 
                 except Exception as e:
+
                     self.show_popup("Error", str(e))
 
             save_btn.bind(on_press=save_changes)
@@ -597,24 +682,20 @@ class GSTBillingApp(App):
             popup.open()
 
         except Exception as e:
+
             self.show_popup("Error", str(e))
 
     # ---------------- EXIT APP ----------------
 
     def exit_app(self, instance):
 
-        try:
+        self.show_popup(
+            "Saved Successfully",
+            f"Excel File Saved\n\n"
+            f"Location:\n{self.file_name}"
+        )
 
-            self.show_popup(
-                "Saved",
-                f"Excel File Saved Successfully\n\n"
-                f"Location:\n{FILE_NAME}"
-            )
-
-            App.get_running_app().stop()
-
-        except Exception as e:
-            self.show_popup("Error", str(e))
+        App.get_running_app().stop()
 
 
 GSTBillingApp().run()
