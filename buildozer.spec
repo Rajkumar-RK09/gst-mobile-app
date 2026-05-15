@@ -28,7 +28,6 @@ android.accept_sdk_license = True
 
 presplash.color = #121212
 
-icon.filename = icon.png
 
 [buildozer]
 
