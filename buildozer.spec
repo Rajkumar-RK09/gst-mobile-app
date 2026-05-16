@@ -12,7 +12,7 @@ source.include_exts = py,png,jpg,jpeg,kv,xlsx
 
 version = 1.0
 
-requirements = python3,kivy,openpyxl
+requirements = python3==3.10.11,kivy==2.3.0,openpyxl
 
 orientation = portrait
 

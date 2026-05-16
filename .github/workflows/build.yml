@@ -9,8 +9,12 @@ jobs:
 
     steps:
 
+    # ---------------- CHECKOUT ----------------
+
     - name: Checkout Repository
       uses: actions/checkout@v4
+
+    # ---------------- PYTHON ----------------
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -25,7 +29,7 @@ jobs:
         distribution: "temurin"
         java-version: "17"
 
-    # ---------------- DEPENDENCIES ----------------
+    # ---------------- SYSTEM DEPENDENCIES ----------------
 
     - name: Install System Dependencies
       run: |
@@ -49,6 +53,7 @@ jobs:
 
     - name: Install Android SDK
       run: |
+
         mkdir -p $HOME/android-sdk/cmdline-tools
 
         cd $HOME/android-sdk
@@ -80,11 +85,19 @@ jobs:
 
     - name: Build APK
       run: |
-        buildozer android debug
+        buildozer android debug 2>&1 | tee buildlog.txt
       env:
         ANDROID_HOME: /home/runner/android-sdk
         ANDROID_SDK_ROOT: /home/runner/android-sdk
         ANDROID_NDK_HOME: /home/runner/android-sdk/ndk/25.2.9519653
+
+    # ---------------- UPLOAD LOGS ----------------
+
+    - name: Upload Build Logs
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-logs
+        path: buildlog.txt
 
     # ---------------- UPLOAD APK ----------------
 
